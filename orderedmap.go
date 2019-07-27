@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"sync"
 )
 
 var NoValueError = errors.New("No value for this key")
@@ -44,6 +45,7 @@ func (a ByPair) Less(i, j int) bool { return a.LessFunc(a.Pairs[i], a.Pairs[j]) 
 type OrderedMap struct {
 	keys   []string
 	values map[string]interface{}
+	mutex sync.RWMutex
 }
 
 func New() *OrderedMap {
@@ -54,37 +56,56 @@ func New() *OrderedMap {
 }
 
 func (o *OrderedMap) Get(key string) (interface{}, bool) {
+	o.mutex.RLock()
 	val, exists := o.values[key]
+	o.mutex.RUnlock()
 	return val, exists
 }
 
 func (o *OrderedMap) Set(key string, value interface{}) {
+	o.mutex.RLock()
 	_, exists := o.values[key]
+	o.mutex.RUnlock()
+
+	o.mutex.Lock()
 	if !exists {
 		o.keys = append(o.keys, key)
 	}
 	o.values[key] = value
+	o.mutex.Unlock()
 }
 
 func (o *OrderedMap) Delete(key string) {
 	// check key is in use
-	_, ok := o.values[key]
+	_, ok := o.Get(key)
 	if !ok {
 		return
 	}
 	// remove from keys
-	for i, k := range o.keys {
+	for i, k := range o.Keys() {
 		if k == key {
+			o.mutex.Lock()
 			o.keys = append(o.keys[:i], o.keys[i+1:]...)
+			o.mutex.Unlock()
 			break
 		}
 	}
 	// remove from values
+	o.mutex.Lock()
 	delete(o.values, key)
+	o.mutex.Unlock()
 }
 
 func (o *OrderedMap) Keys() []string {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 	return o.keys
+}
+
+func (o *OrderedMap) Size() int {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	return len(o.keys)
 }
 
 // SortKeys Sort the map keys using your sort func
@@ -94,15 +115,18 @@ func (o *OrderedMap) SortKeys(sortFunc func(keys []string)) {
 
 // Sort Sort the map using your sort func
 func (o *OrderedMap) Sort(lessFunc func(a *Pair, b *Pair) bool) {
-	pairs := make([]*Pair, len(o.keys))
-	for i, key := range o.keys {
-		pairs[i] = &Pair{key, o.values[key]}
+	pairs := make([]*Pair, o.Size())
+	for i, key := range o.Keys() {
+		val, _ := o.Get(key)
+		pairs[i] = &Pair{key, val}
 	}
 
 	sort.Sort(ByPair{pairs, lessFunc})
 
 	for i, pair := range pairs {
+		o.mutex.Lock()
 		o.keys[i] = pair.key
+		o.mutex.Unlock()
 	}
 }
 
