@@ -114,6 +114,12 @@ func (o *OrderedMap) Size() int {
 	return len(o.keys)
 }
 
+func (o *OrderedMap) Foreach(action func(val interface{})) {
+	for _, key := range o.Keys() {
+		action(o.Get(key))
+	}
+}
+
 // SortKeys Sort the map keys using your sort func
 func (o *OrderedMap) SortKeys(sortFunc func(keys []string)) {
 	sortFunc(o.keys)
