@@ -55,11 +55,18 @@ func New() *OrderedMap {
 	return &o
 }
 
-func (o *OrderedMap) Get(key string) (interface{}, bool) {
+func (o *OrderedMap) Get(key string) (val interface{}) {
 	o.mutex.RLock()
-	val, exists := o.values[key]
+	val = o.values[key]
 	o.mutex.RUnlock()
-	return val, exists
+	return
+}
+
+func (o *OrderedMap) Exists(key string) (exists bool) {
+	o.mutex.RLock()
+	_, exists = o.values[key]
+	o.mutex.RUnlock()
+	return
 }
 
 func (o *OrderedMap) Set(key string, value interface{}) {
@@ -77,8 +84,7 @@ func (o *OrderedMap) Set(key string, value interface{}) {
 
 func (o *OrderedMap) Delete(key string) {
 	// check key is in use
-	_, ok := o.Get(key)
-	if !ok {
+	if !o.Exists(key) {
 		return
 	}
 	// remove from keys
@@ -117,8 +123,7 @@ func (o *OrderedMap) SortKeys(sortFunc func(keys []string)) {
 func (o *OrderedMap) Sort(lessFunc func(a *Pair, b *Pair) bool) {
 	pairs := make([]*Pair, o.Size())
 	for i, key := range o.Keys() {
-		val, _ := o.Get(key)
-		pairs[i] = &Pair{key, val}
+		pairs[i] = &Pair{key, o.Get(key)}
 	}
 
 	sort.Sort(ByPair{pairs, lessFunc})
