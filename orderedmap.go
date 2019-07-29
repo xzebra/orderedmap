@@ -115,8 +115,16 @@ func (o *OrderedMap) Size() int {
 }
 
 func (o *OrderedMap) Foreach(action func(val interface{})) {
-	for _, key := range o.Keys() {
+	keys := o.Keys()
+	for _, key := range keys {
 		action(o.Get(key))
+	}
+}
+
+func (o *OrderedMap) ForeachReverse(action func(val interface{})) {
+	keys := o.Keys()
+	for i := len(keys)-1; i >= 0; i-- {
+		action(o.Get(keys[i]))
 	}
 }
 
